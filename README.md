@@ -1,5 +1,9 @@
 # Host bootstrapping
 
+## Setup
+
+Place your public keys in `pubkeys/`
+
 ## Initial bootstrapping
 
 Run this on the LXC parent:

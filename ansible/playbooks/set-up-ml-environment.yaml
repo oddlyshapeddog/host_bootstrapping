@@ -1,0 +1,65 @@
+---
+- name: Setup Python/PyTorch/CUDA machine learning environment
+  hosts: ai_hosts
+  become: yes
+
+  vars:
+    python_version: "3.11"  # Change as per your requirement
+    torch_version: "1.9.0"  # Change as per your requirement
+    cuda_version: "11.1"   # Change as per your requirement
+    cuda_version_hyphenated: "11-1"
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install required packages
+      apt:
+        name: "{{ item }}"
+        state: present
+        cache_valid_time: 3600
+      loop:
+        - python{{ python_version }}
+        - python3-pip
+        - build-essential
+        - libjpeg-dev
+        - zlib1g-dev
+        - libncurses5-dev
+        - libgdbm-dev
+        - libnss3-dev
+        - libssl-dev
+        - libreadline-dev
+        - libffi-dev
+        - wget
+        - unzip
+        - pkg-config
+        - libopenblas-dev
+
+    - name: Install CUDA toolkit
+      apt:
+        deb: "https://developer.download.nvidia.com/compute/cuda/repos/debian10/x86_64/cuda-{{ cuda_version_hyphenated }}_{{ cuda_version }}.1-1_amd64.deb"
+        state: present
+      register: cuda_install_result
+      when: ansible_architecture == "x86_64"  # Install CUDA only for x86_64 architecture
+
+    - name: Reboot the system to load the CUDA drivers (if CUDA was installed)
+      reboot:
+      when: cuda_install_result is changed
+
+    - name: Install PyTorch
+      pip:
+        name: torch=={{ torch_version }}+cu{{ cuda_version.replace('.', '') }} \
+              torchvision=={{ torch_version }}+cu{{ cuda_version.replace('.', '') }} \
+              torchaudio=={{ torch_version }} \
+              -f https://download.pytorch.org/whl/torch_stable.html
+        executable: pip3
+
+    - name: Install additional Python packages
+      pip:
+        name:
+          - numpy
+          - scipy
+          - jupyter
+          - xformers
+        executable: pip3
