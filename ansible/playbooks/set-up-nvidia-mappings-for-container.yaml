@@ -2,49 +2,34 @@
 - name: Expose Nvidia devices to LXC container
   hosts: localhost
   become: true
-  prompt_vars:
+  vars_prompt:
     - name: container_id
 
   tasks:
-    - name: Check if Nvidia devices exist on the host
-      stat:
-        path: "/dev/nvidia0"
-      register: dev_nvidia0
-      run_once: true
+    - name: Ensure Nvidia devices are loaded on the host
+      modprobe:
+        name: "{{ item }}"
+      loop:
+        - nvidia
+        - nvidia_uvm
+        - nvidia_modeset
 
-    - name: Add Nvidia device mapping to LXC container config
-      lineinfile:
-        dest: "/etc/pve/lxc/{{ container_id }}.conf"
-        line: "lxc.mount.entry = /dev/nvidia0 dev/nvidia0 none bind,optional,create=file"
-        insertafter: EOF
-      when: dev_nvidia0.stat.exists
+    - name: Create Nvidia devices mappings in LXC container config
+      blockinfile:
+        path: "/etc/pve/lxc/{{ container_id }}.conf"
+        block: |
+          lxc.cgroup.devices.allow: c 195:* rwm  # Nvidia character devices
+          lxc.cgroup.devices.allow: c 243:* rwm
+          lxc.cgroup.devices.allow: c 226:* rwm
+          lxc.cgroup.devices.allow: c 509:* rwm
+          lxc.mount.entry: /dev/nvidia0 dev/nvidia0 none bind,optional,create=file
+          lxc.mount.entry: /dev/nvidiactl dev/nvidiactl none bind,optional,create=file
+          lxc.mount.entry: /dev/nvidia-uvm dev/nvidia-uvm none bind,optional,create=file
+          lxc.mount.entry: /dev/nvidia-modeset dev/nvidia-modeset none bind,optional,create=file
+          lxc.mount.entry: /dev/nvidia-uvm-tools dev/nvidia-uvm-tools none bind,optional,create=file
+          lxc.mount.entry: /dev/dri dev/dri none bind,optional,create=dir
+      notify: Restart LXC container
 
-    - name: Check if nvidiactl device exists on the host
-      stat:
-        path: "/dev/nvidiactl"
-      register: dev_nvidiactl
-      run_once: true
-
-    - name: Add nvidiactl device mapping to LXC container config
-      lineinfile:
-        dest: "/etc/pve/lxc/{{ container_id }}.conf"
-        line: "lxc.mount.entry = /dev/nvidiactl dev/nvidiactl none bind,optional,create=file"
-        insertafter: EOF
-      when: dev_nvidiactl.stat.exists
-
-    - name: Check if nvidia-uvm device exists on the host
-      stat:
-        path: "/dev/nvidia-uvm"
-      register: dev_nvidia_uvm
-      run_once: true
-
-    - name: Add nvidia-uvm device mapping to LXC container config
-      lineinfile:
-        dest: "/etc/pve/lxc/{{ container_id }}.conf"
-        line: "lxc.mount.entry = /dev/nvidia-uvm dev/nvidia-uvm none bind,optional,create=file"
-        insertafter: EOF
-      when: dev_nvidia_uvm.stat.exists
-
+  handlers:
     - name: Restart LXC container
-      command: "pct restart {{ container_id }}"
-      when: dev_nvidia0.stat.exists or dev_nvidiactl.stat.exists or dev_nvidia_uvm.stat.exists
+      command: "pct reboot {{ container_id }}"

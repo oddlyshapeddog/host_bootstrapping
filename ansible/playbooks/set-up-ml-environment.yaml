@@ -21,6 +21,7 @@
         cache_valid_time: 3600
       loop:
         - python{{ python_version }}
+        - python{{ python_version }}-venv
         - python3-pip
         - build-essential
         - libjpeg-dev
