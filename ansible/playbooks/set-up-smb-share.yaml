@@ -1,0 +1,42 @@
+---
+- name: Mount a Windows SMB share
+  hosts: storage_hosts
+  become: yes
+
+  vars_prompt:
+    - name: smb_share_name
+      default: "my_share"
+    - name: local_mount_point
+      default: "/my_share"
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install cifs-utils package
+      apt:
+        name:
+          - samba
+          - smbclient
+        state: present
+
+    - name: Configure Samba share
+      blockinfile:
+        path: /etc/samba/smb.conf
+        block: |
+          [{{ smb_share_name }}]
+              path = {{ local_mount_point }}
+              browseable = yes
+              writable = yes
+              guest ok = yes
+              read only = no
+              force user = user
+              force group = user
+      notify: restart samba
+
+  handlers:
+    - name: restart samba
+      service:
+        name: smbd
+        state: restarted
