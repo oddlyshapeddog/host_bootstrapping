@@ -1,0 +1,40 @@
+---
+- name: Download and install nvidia drivers
+  hosts: ai_hosts
+  become: true
+  vars:
+    package_url: "https://developer.download.nvidia.com/compute/cuda/repos/debian11/x86_64/cuda-keyring_1.1-1_all.deb"
+
+  tasks:
+    - name: Download dpkg package
+      get_url:
+        url: "{{ package_url }}"
+        dest: "/tmp/package.deb"
+
+    - name: Install dpkg package
+      apt:
+        deb: "/tmp/package.deb"
+        state: present
+
+    - name: Add contrib repository
+      become: true
+      apt_repository:
+        repo: "deb {{ ansible_distribution_release }} contrib"
+        state: present
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install nvidia packages
+      apt:
+        name: "{{ item }}"
+        state: present
+        cache_valid_time: 3600
+      loop:
+        - cuda
+
+    - name: Remove downloaded package file
+      file:
+        path: "/tmp/package.deb"
+        state: absent
