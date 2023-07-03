@@ -1,0 +1,35 @@
+---
+- name: Expose Nvidia devices to LXC container
+  hosts: localhost
+  become: true
+  vars_prompt:
+    - name: container_id
+
+  tasks:
+    - name: Ensure Nvidia devices are loaded on the host
+      modprobe:
+        name: "{{ item }}"
+      loop:
+        - nvidia
+        - nvidia_uvm
+        - nvidia_modeset
+
+    - name: Create Nvidia devices mappings in LXC container config
+      blockinfile:
+        path: "/etc/pve/lxc/{{ container_id }}.conf"
+        block: |
+          lxc.cgroup.devices.allow: c 195:* rwm  # Nvidia character devices
+          lxc.cgroup.devices.allow: c 243:* rwm
+          lxc.cgroup.devices.allow: c 226:* rwm
+          lxc.cgroup.devices.allow: c 509:* rwm
+          lxc.mount.entry: /dev/nvidia0 dev/nvidia0 none bind,optional,create=file
+          lxc.mount.entry: /dev/nvidiactl dev/nvidiactl none bind,optional,create=file
+          lxc.mount.entry: /dev/nvidia-uvm dev/nvidia-uvm none bind,optional,create=file
+          lxc.mount.entry: /dev/nvidia-modeset dev/nvidia-modeset none bind,optional,create=file
+          lxc.mount.entry: /dev/nvidia-uvm-tools dev/nvidia-uvm-tools none bind,optional,create=file
+          lxc.mount.entry: /dev/dri dev/dri none bind,optional,create=dir
+      notify: Restart LXC container
+
+  handlers:
+    - name: Restart LXC container
+      command: "pct reboot {{ container_id }}"

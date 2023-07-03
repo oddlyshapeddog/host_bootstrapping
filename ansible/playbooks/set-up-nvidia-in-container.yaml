@@ -1,0 +1,54 @@
+---
+- name: Download and install nvidia drivers
+  hosts: ai_hosts
+  become: true
+  vars:
+    package_url: "https://developer.download.nvidia.com/compute/cuda/repos/debian11/x86_64/cuda-keyring_1.1-1_all.deb"
+    devicequery_path: "/usr/local/cuda/extras/demo_suite/deviceQuery"
+
+  tasks:
+    - name: Download dpkg package
+      get_url:
+        url: "{{ package_url }}"
+        dest: "/tmp/package.deb"
+
+    - name: Install dpkg package
+      apt:
+        deb: "/tmp/package.deb"
+        state: present
+
+    - name: Add contrib repository
+      become: true
+      apt_repository:
+        repo: "deb https://ftp.debian.org/debian {{ ansible_distribution_release }} main contrib"
+        state: present
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install nvidia packages
+      apt:
+        name: "{{ item }}"
+        state: present
+        cache_valid_time: 3600
+      loop:
+        - cuda
+        - nvidia-driver
+        - nvidia-smi
+
+    - name: Run deviceQuery sample
+      command: "{{ devicequery_path }}"
+      register: device_query_output
+      changed_when: false
+      ignore_errors: true
+
+    - name: Verify CUDA functionality
+      fail:
+        msg: "CUDA is not working or properly installed on the system"
+      when: device_query_output.rc != 0 or device_query_output.stdout_lines | search("Result = PASS") is not match
+
+    - name: Remove downloaded package file
+      file:
+        path: "/tmp/package.deb"
+        state: absent
