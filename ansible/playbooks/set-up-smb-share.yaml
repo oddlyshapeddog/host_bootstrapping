@@ -1,15 +1,13 @@
 ---
 - name: Mount a Windows SMB share
-  hosts: your_hosts
+  hosts: storage_hosts
   become: yes
 
   vars_prompt:
     - name: smb_share_name
-      default: "shared"
-    - name: smb_share_path
-      default: ""
-    - name: mount_point
-      default: "/mnt/shared"
+      default: "my_share"
+    - name: local_mount_point
+      default: "/my_share"
 
   tasks:
     - name: Update apt cache
@@ -18,24 +16,27 @@
 
     - name: Install cifs-utils package
       apt:
-        name: cifs-utils
+        name:
+          - samba
+          - smbclient
         state: present
 
-    - name: Create mount point directory
-      file:
-        path: "{{ mount_point }}"
-        state: directory
-        mode: '0755'
+    - name: Configure Samba share
+      blockinfile:
+        path: /etc/samba/smb.conf
+        block: |
+          [{{ smb_share_name }}]
+              path = {{ local_mount_point }}
+              browseable = yes
+              writable = yes
+              guest ok = yes
+              read only = no
+              force user = user
+              force group = user
+      notify: restart samba
 
-    - name: Mount SMB share
-      mount:
-        src: "//{{ inventory_hostname }}/{{ smb_share_name }}/{{ smb_share_path }}"
-        path: "{{ mount_point }}"
-        fstype: cifs
-        opts: "credentials=/etc/samba/credentials,iocharset=utf8,uid=1000,gid=1000,file_mode=0775,dir_mode=0775"
-        state: mounted
-
-    - name: Ensure the mount is present in /etc/fstab
-      lineinfile:
-        path: /etc/fstab
-        line: "//{{ inventory_hostname }}/{{ smb_share_name }}/{{ smb_share_path }} {{ mount_point }} cifs credentials=/etc/samba/credentials,iocharset=utf8,uid=1000,gid=1000,file_mode=0775,dir_mode=0775 0 0"
+  handlers:
+    - name: restart samba
+      service:
+        name: smbd
+        state: restarted
