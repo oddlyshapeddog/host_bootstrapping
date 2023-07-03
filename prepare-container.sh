@@ -94,6 +94,12 @@ if [ "$STATUS" = "running" ]; then
 else
   # Start the container
   sudo pct start "$CONTAINER_ID"
+  if [ $? -eq 0 ]; then
+    echo "Started successfully"
+  else
+    echo "Error while starting the container"
+    exit 1
+  fi
 fi
 
 # Wait for the container to boot and check network connectivity
@@ -157,7 +163,7 @@ if [ $? -eq 0 ]; then
 else
   echo "User '$USER' does not exist. Creating..."
 
-  sudo pct exec "$CONTAINER_ID" -- useradd -G sudo $USER
+  sudo pct exec "$CONTAINER_ID" -- useradd -G sudo -s /bin/bash $USER
 fi
 
 echo "Enabling passwordless SSH..."
@@ -172,7 +178,7 @@ echo "Checking authorized public keys..."
 AUTHORIZED_KEYS_FILE="/home/$USER/.ssh/authorized_keys"
 sudo pct exec "$CONTAINER_ID" -- mkdir -p "/home/$USER/.ssh"
 sudo pct exec "$CONTAINER_ID" -- touch "$AUTHORIZED_KEYS_FILE"
-for PUBKEY_FILE in "$PUBKEYS_DIR"/*; do
+for PUBKEY_FILE in "$PUBKEYS_DIR"/*.pub; do
   # Read the content of the public key file
   PUBKEY=$(cat "$PUBKEY_FILE")
 
