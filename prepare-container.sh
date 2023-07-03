@@ -5,7 +5,7 @@ WAIT_TIME=5         # Adjust the wait time between checks (in seconds)
 MAX_RETRIES=24      # Adjust the maximum number of retries
 USER=user
 PUBKEYS_DIR=/vm_bootstrapping/pubkeys
-ESSENTIAL_PACKAGES="sudo nano curl git wget zip unzip build-essential rsync openssh-client"
+ESSENTIAL_PACKAGES="sudo nano curl git wget zip unzip build-essential rsync openssh-client screen"
 
 MP0_VALUE=/vm_bootstrapping,mp=/vm_bootstrapping
 MP1_VALUE=/hive,mp=/hive
